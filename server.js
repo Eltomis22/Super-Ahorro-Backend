@@ -17,7 +17,7 @@ app.get('/', (req, res) => {
 });
 
 // GET /supermercados (Trae los datos reales de Supabase)
-app.get('/supermercados', async (req, res) => {
+app.get('/api/v1/supermercados', async (req, res) =>{
     try {
         const { data, error } = await supabase
             .from('supermercados')
