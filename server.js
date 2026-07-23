@@ -27,7 +27,7 @@ console.log("Verificando GEMINI_API_KEY...");
 if (!process.env.GEMINI_API_KEY) {
     console.error("ERROR: GEMINI_API_KEY no encontrada en las variables de entorno.");
 } else {
-    console.log("GEMINI_API_KEY detectada (comienza con):", process.env.GEMINI_API_KEY.substring(0, 7));
+    console.log("GEMINI_API_KEY detectada (formato AQ. u otro).");
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -312,5 +312,7 @@ app.post('/api/v1/budget/check', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor corriendo en http://localhost:${PORT}`);
+    console.log(`Servidor de SuperAhorro encendido con éxito.`);
+    console.log(`Puerto: ${PORT}`);
+    console.log(`Endpoints activos: GET /supermercados, POST /compras, DELETE /compras/:id, POST /chat, POST /budget/check`);
 });
