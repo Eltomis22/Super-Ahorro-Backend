@@ -38,29 +38,31 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
  */
 async function askGemini(prompt) {
     const modelosParaProbar = [
-        { name: "gemini-1.5-flash", version: "v1beta" },
-        { name: "gemini-1.5-flash-8b", version: "v1beta" },
-        { name: "gemini-1.0-pro", version: "v1" }
+        "models/gemini-1.5-flash",
+        "models/gemini-1.5-flash-8b",
+        "models/gemini-pro"
     ];
 
     let ultimoError = null;
-    for (const mod of modelosParaProbar) {
+    for (const modelName of modelosParaProbar) {
         try {
-            console.log(`Intentando con modelo: ${mod.name} (${mod.version})...`);
-            const modelInstance = genAI.getGenerativeModel({ model: mod.name }, { apiVersion: mod.version });
+            console.log(`Intentando conectar con: ${modelName}...`);
+            // Dejamos que el SDK elija la versión de API automáticamente (v1/v1beta)
+            const modelInstance = genAI.getGenerativeModel({ model: modelName });
             const result = await modelInstance.generateContent(prompt);
             const response = await result.response;
             const text = response.text();
+
             if (text) {
-                console.log(`¡Éxito con ${mod.name}!`);
+                console.log(`¡Conectado exitosamente a ${modelName}!`);
                 return text;
             }
         } catch (e) {
-            console.warn(`Fallo modelo ${mod.name}:`, e.message);
+            console.warn(`Fallo en ${modelName}:`, e.message);
             ultimoError = e;
         }
     }
-    throw new Error(`Ningún modelo de IA respondió. Último error: ${ultimoError?.message}`);
+    throw new Error(`La IA no está disponible en este momento. Revisa tu API Key.`);
 }
 
 // --- ENDPOINTS ---
