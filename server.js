@@ -129,6 +129,7 @@ app.post('/api/v1/compras', async (req, res) => {
             .from('compras')
             .insert([{
                 id_local: compra.id,
+                usuario_email: compra.usuarioEmail, // Vinculamos con el usuario
                 fecha: compra.fecha,
                 hora: compra.hora,
                 supermercado: compra.supermercado,
@@ -167,6 +168,48 @@ app.post('/api/v1/compras', async (req, res) => {
     } catch (error) {
         console.error('Error al sincronizar compra:', error.message);
         res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+/**
+ * POST: Registrar usuario en la nube.
+ * Endpoint: /api/v1/usuarios/registrar
+ */
+app.post('/api/v1/usuarios/registrar', async (req, res) => {
+    try {
+        const { nombre, email, clave } = req.body;
+        const { data, error } = await supabase
+            .from('usuarios_cloud')
+            .insert([{ nombre, email, clave }])
+            .select()
+            .single();
+
+        if (error) throw error;
+        res.json({ success: true, message: 'Usuario registrado en la nube' });
+    } catch (error) {
+        console.error('Error al registrar usuario:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+/**
+ * POST: Login de usuario en la nube.
+ * Endpoint: /api/v1/usuarios/login
+ */
+app.post('/api/v1/usuarios/login', async (req, res) => {
+    try {
+        const { email, clave } = req.body;
+        const { data, error } = await supabase
+            .from('usuarios_cloud')
+            .select('*')
+            .eq('email', email)
+            .eq('clave', clave)
+            .single();
+
+        if (error || !data) throw new Error('Credenciales inválidas en la nube');
+        res.json({ success: true, user: { nombre: data.nombre, email: data.email } });
+    } catch (error) {
+        res.status(401).json({ success: false, message: error.message });
     }
 });
 
@@ -244,12 +287,13 @@ app.post('/api/v1/chat', async (req, res) => {
  */
 app.post('/api/v1/budget/check', async (req, res) => {
     try {
-        const { categoria, monto_solicitado, presupuesto_total } = req.body;
+        const { categoria, monto_solicitado, presupuesto_total, usuario_email } = req.body;
 
         const { data: presupuestos } = await supabase.from('presupuestos').select('*');
         const { data: gastos } = await supabase
             .from('compras')
             .select('categoria, total')
+            .eq('usuario_email', usuario_email) // Filtramos por usuario
             .gte('fecha', new Date().toISOString().substring(0, 7) + '-01');
 
         const allocation = {};
