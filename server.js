@@ -171,6 +171,33 @@ app.post('/api/v1/compras', async (req, res) => {
 });
 
 /**
+ * DELETE: Elimina una compra y sus productos asociados.
+ * Endpoint: /api/v1/compras/:id_local
+ */
+app.delete('/api/v1/compras/:id_local', async (req, res) => {
+    try {
+        const { id_local } = req.params;
+        console.log(`Solicitud para eliminar compra local ID: ${id_local}`);
+
+        const { error } = await supabase
+            .from('compras')
+            .delete()
+            .eq('id_local', id_local);
+
+        if (error) throw error;
+
+        res.json({
+            success: true,
+            message: 'Compra eliminada correctamente de la nube'
+        });
+
+    } catch (error) {
+        console.error('Error al eliminar compra:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+/**
  * POST: Chat con IA (Gemini).
  * Recibe un mensaje del usuario y devuelve la respuesta de la IA.
  * Endpoint: /api/v1/chat
