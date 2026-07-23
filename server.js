@@ -38,23 +38,22 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
  */
 async function askGemini(prompt) {
     const modelosParaProbar = [
-        "models/gemini-1.5-flash",
-        "models/gemini-1.5-flash-8b",
-        "models/gemini-pro"
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-8b",
+        "gemini-pro"
     ];
 
     let ultimoError = null;
     for (const modelName of modelosParaProbar) {
         try {
             console.log(`Intentando conectar con: ${modelName}...`);
-            // Dejamos que el SDK elija la versión de API automáticamente (v1/v1beta)
             const modelInstance = genAI.getGenerativeModel({ model: modelName });
             const result = await modelInstance.generateContent(prompt);
             const response = await result.response;
             const text = response.text();
 
             if (text) {
-                console.log(`¡Conectado exitosamente a ${modelName}!`);
+                console.log(`¡Éxito con ${modelName}!`);
                 return text;
             }
         } catch (e) {
@@ -62,7 +61,7 @@ async function askGemini(prompt) {
             ultimoError = e;
         }
     }
-    throw new Error(`La IA no está disponible en este momento. Revisa tu API Key.`);
+    throw new Error(`La IA sigue dando error 404. Por favor, crea una NUEVA API Key en AI Studio (Create Key in New Project) y actualízala en Render.`);
 }
 
 // --- ENDPOINTS ---
