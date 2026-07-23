@@ -172,8 +172,10 @@ app.post('/api/v1/compras', async (req, res) => {
 });
 
 /**
- * POST: Registrar usuario en la nube.
- * Endpoint: /api/v1/usuarios/registrar
+ * GET: Obtiene los presupuestos de un usuario.
+ * Endpoint: /api/v1/presupuestos?email=...
+ */
+app.get(\u0027/api/v1/presupuestos\u0027, async (req, res) \u003d\u003e {\n    try {\n        const { email } \u003d req.query;\n        const { data, error } \u003d await supabase\n            .from(\u0027presupuestos\u0027)\n            .select(\u0027categoria, monto_maximo\u0027)\n            .eq(\u0027usuario_email\u0027, email);\n\n        if (error) throw error;\n        res.json(data);\n    } catch (error) {\n        res.status(500).json({ success: false, message: error.message });\n    }\n});\n\n/**\n * POST: Guarda o actualiza los presupuestos de un usuario.\n * Endpoint: /api/v1/presupuestos\n */\napp.post(\u0027/api/v1/presupuestos\u0027, async (req, res) \u003d\u003e {\n    try {\n        const { email, presupuestos } \u003d req.body; // presupuestos \u003d [{categoria, monto_maximo}, ...]\n        \n        const rows \u003d presupuestos.map(p \u003d\u003e ({\n            usuario_email: email,\n            categoria: p.categoria,\n            monto_maximo: p.monto_maximo\n        }));\n\n        const { error } \u003d await supabase\n            .from(\u0027presupuestos\u0027)\n            .upsert(rows, { onConflict: \u0027usuario_email,categoria\u0027 });\n\n        if (error) throw error;\n        res.json({ success: true, message: \u0027Presupuestos actualizados\u0027 });\n    } catch (error) {\n        res.status(500).json({ success: false, message: error.message });\n    }\n});\n\n/**\n * POST: Registrar usuario en la nube.\n * Endpoint: /api/v1/usuarios/registrar
  */
 app.post('/api/v1/usuarios/registrar', async (req, res) => {
     try {
@@ -289,26 +291,7 @@ app.post('/api/v1/budget/check', async (req, res) => {
     try {
         const { categoria, monto_solicitado, presupuesto_total, usuario_email } = req.body;
 
-        const { data: presupuestos } = await supabase.from('presupuestos').select('*');
-        const { data: gastos } = await supabase
-            .from('compras')
-            .select('categoria, total')
-            .eq('usuario_email', usuario_email) // Filtramos por usuario
-            .gte('fecha', new Date().toISOString().substring(0, 7) + '-01');
-
-        const allocation = {};
-        presupuestos.forEach(p => allocation[p.categoria] = 0);
-        gastos.forEach(g => {
-            if (allocation[g.categoria] !== undefined) {
-                allocation[g.categoria] += parseFloat(g.total);
-            }
-        });
-
-        const categorias = presupuestos.map(p => p.categoria);
-        const max = presupuestos.map(p => parseFloat(p.monto_maximo));
-        const currentAllocation = categorias.map(c => allocation[c]);
-        const totalResources = presupuesto_total || presupuestos.reduce((acc, p) => acc + parseFloat(p.monto_maximo), 0);
-        const totalSpent = currentAllocation.reduce((acc, val) => acc + val, 0);
+        const { data: presupuestos } \u003d await supabase\n            .from(\u0027presupuestos\u0027)\n            .select(\u0027*\u0027)\n            .eq(\u0027usuario_email\u0027, usuario_email);\n\n        // Si el usuario no tiene presupuestos configurados, usamos unos por defecto\n        const categoriasBase \u003d [\u0027Comida\u0027, \u0027Servicios\u0027, \u0027Ocio\u0027, \u0027Otros\u0027];\n        const presupuestosFinales \u003d presupuestos.length \u003e 0 \n            ? presupuestos \n            : categoriasBase.map(c \u003d\u003e ({ categoria: c, monto_maximo: 10000 }));\n\n        const { data: gastos } \u003d await supabase\n            .from(\u0027compras\u0027)\n            .select(\u0027categoria, total\u0027)\n            .eq(\u0027usuario_email\u0027, usuario_email) // Filtramos por usuario\n            .gte(\u0027fecha\u0027, new Date().toISOString().substring(0, 7) + \u0027-01\u0027);\n\n        const allocation \u003d {};\n        presupuestosFinales.forEach(p \u003d\u003e allocation[p.categoria] \u003d 0);\n        gastos.forEach(g \u003d\u003e {\n            if (allocation[g.categoria] !\u003d\u003d undefined) {\n                allocation[g.categoria] +\u003d parseFloat(g.total);\n            }\n        });\n\n        const categorias \u003d presupuestosFinales.map(p \u003d\u003e p.categoria);\n        const max \u003d presupuestosFinales.map(p \u003d\u003e parseFloat(p.monto_maximo));\n        const currentAllocation \u003d categorias.map(c \u003d\u003e allocation[c]);\n        const totalResources \u003d presupuesto_total || max.reduce((acc, val) \u003d\u003e acc + val, 0);\n        const totalSpent = currentAllocation.reduce((acc, val) => acc + val, 0);
         let available = totalResources - totalSpent;
 
         const idx = categorias.indexOf(categoria);
