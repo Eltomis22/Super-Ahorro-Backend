@@ -24,6 +24,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Configuración de Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Usamos gemini-1.5-flash-latest para asegurar la versión más reciente compatible con el SDK
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 // --- ENDPOINTS ---
@@ -164,8 +165,11 @@ app.post('/api/v1/chat', async (req, res) => {
         res.json({ response: text });
 
     } catch (error) {
-        console.error('Error en Chat IA:', error.message);
-        res.status(500).json({ error: 'Error al procesar la consulta con la IA' });
+        console.error('Error detallado en Chat IA:', error);
+        res.status(500).json({
+            error: 'Error al procesar la consulta con la IA',
+            details: error.message
+        });
     }
 });
 
