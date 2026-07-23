@@ -24,8 +24,8 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Configuración de Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-// Usamos gemini-1.5-flash-latest para asegurar la versión más reciente compatible con el SDK
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+// Usamos gemini-1.5-flash forzando la versión v1 de la API para evitar el error 404 de la v1beta
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: "v1" });
 
 // --- ENDPOINTS ---
 
