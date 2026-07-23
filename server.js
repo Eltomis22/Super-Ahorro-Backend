@@ -31,8 +31,14 @@ if (!process.env.GEMINI_API_KEY) {
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-// Usamos gemini-1.5-flash-latest que suele ser el alias más estable
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+
+// Forzamos el uso de la versión v1 estable para evitar el 404 de la v1beta
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: "v1" });
+
+// Log opcional para verificar modelos disponibles en el arranque
+genAI.listModels()
+    .then(res => console.log("Modelos disponibles:", res.models.map(m => m.name.replace("models/", ""))))
+    .catch(e => console.warn("Aviso: No se pudo listar modelos:", e.message));
 
 // --- ENDPOINTS ---
 
