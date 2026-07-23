@@ -23,9 +23,16 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Configuración de Gemini AI
+console.log("Verificando GEMINI_API_KEY...");
+if (!process.env.GEMINI_API_KEY) {
+    console.error("ERROR: GEMINI_API_KEY no encontrada en las variables de entorno.");
+} else {
+    console.log("GEMINI_API_KEY detectada (comienza con):", process.env.GEMINI_API_KEY.substring(0, 7));
+}
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-// Usamos gemini-1.5-flash forzando la versión v1 de la API para evitar el error 404 de la v1beta
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: "v1" });
+// Usamos gemini-1.5-flash-latest que suele ser el alias más estable
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
 // --- ENDPOINTS ---
 
