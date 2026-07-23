@@ -33,12 +33,8 @@ if (!process.env.GEMINI_API_KEY) {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Forzamos el uso de la versión v1 estable para evitar el 404 de la v1beta
+// Si este falla, el error se capturará en el endpoint de chat.
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: "v1" });
-
-// Log opcional para verificar modelos disponibles en el arranque
-genAI.listModels()
-    .then(res => console.log("Modelos disponibles:", res.models.map(m => m.name.replace("models/", ""))))
-    .catch(e => console.warn("Aviso: No se pudo listar modelos:", e.message));
 
 // --- ENDPOINTS ---
 
