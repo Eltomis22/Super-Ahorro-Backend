@@ -32,9 +32,8 @@ if (!process.env.GEMINI_API_KEY) {
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Forzamos el uso de la versión v1 estable para evitar el 404 de la v1beta
-// Si este falla, el error se capturará en el endpoint de chat.
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: "v1" });
+// Para las nuevas API Keys (AQ.), Flash requiere v1beta y el nombre de modelo base sin alias
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: "v1beta" });
 
 // --- ENDPOINTS ---
 
