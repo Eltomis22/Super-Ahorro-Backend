@@ -32,8 +32,36 @@ if (!process.env.GEMINI_API_KEY) {
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Para las nuevas API Keys (AQ.), Flash requiere v1beta y el nombre de modelo base sin alias
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: "v1beta" });
+/**
+ * Función resiliente para intentar varios modelos (Fallback).
+ * Soluciona errores 404 de modelos retirados o inaccesibles.
+ */
+async function askGemini(prompt) {
+    const modelosParaProbar = [
+        { name: "gemini-1.5-flash", version: "v1beta" },
+        { name: "gemini-1.5-flash-8b", version: "v1beta" },
+        { name: "gemini-1.0-pro", version: "v1" }
+    ];
+
+    let ultimoError = null;
+    for (const mod of modelosParaProbar) {
+        try {
+            console.log(`Intentando con modelo: ${mod.name} (${mod.version})...`);
+            const modelInstance = genAI.getGenerativeModel({ model: mod.name }, { apiVersion: mod.version });
+            const result = await modelInstance.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
+            if (text) {
+                console.log(`¡Éxito con ${mod.name}!`);
+                return text;
+            }
+        } catch (e) {
+            console.warn(`Fallo modelo ${mod.name}:`, e.message);
+            ultimoError = e;
+        }
+    }
+    throw new Error(`Ningún modelo de IA respondió. Último error: ${ultimoError?.message}`);
+}
 
 // --- ENDPOINTS ---
 
@@ -166,10 +194,7 @@ app.post('/api/v1/chat', async (req, res) => {
             Responde de forma breve, amigable y útil a la siguiente consulta: ${message}
         `;
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
-
+        const text = await askGemini(prompt);
         res.json({ response: text });
 
     } catch (error) {
