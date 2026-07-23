@@ -25,9 +25,9 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // Configuración de Gemini AI
 console.log("Verificando GEMINI_API_KEY...");
 if (!process.env.GEMINI_API_KEY) {
-    console.error("ERROR: GEMINI_API_KEY no encontrada en las variables de entorno.");
+    console.error("ERROR: GEMINI_API_KEY no encontrada.");
 } else {
-    console.log("GEMINI_API_KEY detectada (formato AQ. u otro).");
+    console.log("GEMINI_API_KEY detectada.");
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -37,8 +37,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
  * Soluciona errores 404 de modelos retirados o inaccesibles.
  */
 async function askGemini(prompt) {
-    // Combinaciones de Modelo + Versión para agotar todas las posibilidades de Google
-    const configs = [
+    const modelosParaProbar = [
         { model: "gemini-1.5-flash", version: "v1" },
         { model: "gemini-1.5-flash", version: "v1beta" },
         { model: "gemini-pro", version: "v1" },
@@ -61,7 +60,6 @@ async function askGemini(prompt) {
         } catch (e) {
             console.warn(`Fallo ${conf.model} en ${conf.version}:`, e.message);
             ultimoError = e;
-            // Si el error es de permisos (403), no seguimos probando modelos
             if (e.message.includes("403")) break;
         }
     }
@@ -70,15 +68,11 @@ async function askGemini(prompt) {
 
 // --- ENDPOINTS ---
 
-// Ruta raíz para verificar que el servidor funciona
 app.get('/', (req, res) => {
     res.json({ message: 'Backend de SuperAhorro funcionando 🚀' });
 });
 
-/**
- * GET: Obtiene la lista de supermercados desde Supabase.
- * Endpoint: /api/v1/supermercados
- */
+// GET /supermercados
 app.get('/api/v1/supermercados', async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -87,104 +81,57 @@ app.get('/api/v1/supermercados', async (req, res) => {
             .order('nombre', { ascending: true });
 
         if (error) throw error;
-
-        // Devolvemos solo la lista de strings como espera la app
-        const listaNombres = data.map(s => s.nombre);
-        res.json(listaNombres);
+        res.json(data.map(s => s.nombre));
     } catch (error) {
         console.error('Error al obtener supermercados:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 });
 
-/**
- * POST: Sincroniza una compra local con el servidor.
- * Recibe el objeto Compra (incluyendo sus productos si vienen en el body).
- * Endpoint: /api/v1/compras
- */
-app.post('/api/v1/compras', async (req, res) => {
+// GET /presupuestos
+app.get('/api/v1/presupuestos', async (req, res) => {
     try {
-        const compra = req.body;
-        console.log('Recibida compra para sincronizar:', compra);
+        const { email } = req.query;
+        const { data, error } = await supabase
+            .from('presupuestos')
+            .select('categoria, monto_maximo')
+            .eq('usuario_email', email);
 
-        // 1. Verificar si el supermercado ya existe en la lista de sugerencias (Master Data)
-        const { data: existente, error: errorCheck } = await supabase
-            .from('supermercados')
-            .select('nombre')
-            .ilike('nombre', compra.supermercado)
-            .maybeSingle();
-
-        if (errorCheck) console.warn('Aviso: No se pudo verificar el supermercado existente:', errorCheck.message);
-
-        // Si no existe, lo agregamos automáticamente para futuras sugerencias
-        if (!existente && compra.supermercado) {
-            console.log(`Nuevo supermercado detectado: ${compra.supermercado}. Agregando a sugerencias...`);
-            await supabase
-                .from('supermercados')
-                .insert([{ nombre: compra.supermercado }]);
-        }
-
-        // 2. Insertar la compra en Supabase
-        const { data: nuevaCompra, error: errorCompra } = await supabase
-            .from('compras')
-            .insert([{
-                id_local: compra.id,
-                usuario_email: compra.usuarioEmail, // Vinculamos con el usuario
-                fecha: compra.fecha,
-                hora: compra.hora,
-                supermercado: compra.supermercado,
-                total: compra.total,
-                categoria: compra.categoria,
-                ticket_imagen_uri: compra.ticketImagenUri
-            }])
-            .select()
-            .single();
-
-        if (errorCompra) throw errorCompra;
-
-        // 2. Si la compra tiene productos, los insertamos
-        if (compra.productos && compra.productos.length > 0) {
-            const productosParaInsertar = compra.productos.map(p => ({
-                compra_id: nuevaCompra.id,
-                codigo: p.codigo,
-                nombre: p.nombre,
-                descripcion: p.descripcion,
-                cantidad: p.cantidad,
-                precio: p.precio
-            }));
-
-            const { error: errorProductos } = await supabase
-                .from('productos')
-                .insert(productosParaInsertar);
-
-            if (errorProductos) throw errorProductos;
-        }
-
-        res.json({
-            success: true,
-            message: 'Compra sincronizada correctamente en la nube'
-        });
-
+        if (error) throw error;
+        res.json(data);
     } catch (error) {
-        console.error('Error al sincronizar compra:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 });
 
-/**
- * GET: Obtiene los presupuestos de un usuario.
- * Endpoint: /api/v1/presupuestos?email=...
- */
-app.get(\u0027/api/v1/presupuestos\u0027, async (req, res) \u003d\u003e {\n    try {\n        const { email } \u003d req.query;\n        const { data, error } \u003d await supabase\n            .from(\u0027presupuestos\u0027)\n            .select(\u0027categoria, monto_maximo\u0027)\n            .eq(\u0027usuario_email\u0027, email);\n\n        if (error) throw error;\n        res.json(data);\n    } catch (error) {\n        res.status(500).json({ success: false, message: error.message });\n    }\n});\n\n/**\n * POST: Guarda o actualiza los presupuestos de un usuario.\n * Endpoint: /api/v1/presupuestos\n */\napp.post(\u0027/api/v1/presupuestos\u0027, async (req, res) \u003d\u003e {\n    try {\n        const { email, presupuestos } \u003d req.body; // presupuestos \u003d [{categoria, monto_maximo}, ...]\n        \n        const rows \u003d presupuestos.map(p \u003d\u003e ({\n            usuario_email: email,\n            categoria: p.categoria,\n            monto_maximo: p.monto_maximo\n        }));\n\n        const { error } \u003d await supabase\n            .from(\u0027presupuestos\u0027)\n            .upsert(rows, { onConflict: \u0027usuario_email,categoria\u0027 });\n\n        if (error) throw error;\n        res.json({ success: true, message: \u0027Presupuestos actualizados\u0027 });\n    } catch (error) {\n        res.status(500).json({ success: false, message: error.message });\n    }\n});\n\n/**\n * POST: Registrar usuario en la nube.\n * Endpoint: /api/v1/usuarios/registrar
- */
+// POST /presupuestos
+app.post('/api/v1/presupuestos', async (req, res) => {
+    try {
+        const { email, presupuestos } = req.body;
+        const rows = presupuestos.map(p => ({
+            usuario_email: email,
+            categoria: p.categoria,
+            monto_maximo: p.monto_maximo
+        }));
+
+        const { error } = await supabase
+            .from('presupuestos')
+            .upsert(rows, { onConflict: 'usuario_email,categoria' });
+
+        if (error) throw error;
+        res.json({ success: true, message: 'Presupuestos actualizados' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// POST /usuarios/registrar
 app.post('/api/v1/usuarios/registrar', async (req, res) => {
     try {
         const { nombre, email, clave } = req.body;
-        const { data, error } = await supabase
+        const { error } = await supabase
             .from('usuarios_cloud')
-            .insert([{ nombre, email, clave }])
-            .select()
-            .single();
+            .insert([{ nombre, email, clave }]);
 
         if (error) throw error;
         res.json({ success: true, message: 'Usuario registrado en la nube' });
@@ -194,10 +141,7 @@ app.post('/api/v1/usuarios/registrar', async (req, res) => {
     }
 });
 
-/**
- * POST: Login de usuario en la nube.
- * Endpoint: /api/v1/usuarios/login
- */
+// POST /usuarios/login
 app.post('/api/v1/usuarios/login', async (req, res) => {
     try {
         const { email, clave } = req.body;
@@ -215,38 +159,71 @@ app.post('/api/v1/usuarios/login', async (req, res) => {
     }
 });
 
-/**
- * DELETE: Elimina una compra y sus productos asociados.
- * Endpoint: /api/v1/compras/:id_local
- */
-app.delete('/api/v1/compras/:id_local', async (req, res) => {
+// POST /compras
+app.post('/api/v1/compras', async (req, res) => {
     try {
-        const { id_local } = req.params;
-        console.log(`Solicitud para eliminar compra local ID: ${id_local}`);
+        const compra = req.body;
 
-        const { error } = await supabase
+        const { data: existente } = await supabase
+            .from('supermercados')
+            .select('nombre')
+            .ilike('nombre', compra.supermercado)
+            .maybeSingle();
+
+        if (!existente && compra.supermercado) {
+            await supabase.from('supermercados').insert([{ nombre: compra.supermercado }]);
+        }
+
+        const { data: nuevaCompra, error: errorCompra } = await supabase
             .from('compras')
-            .delete()
-            .eq('id_local', id_local);
+            .insert([{
+                id_local: compra.id,
+                usuario_email: compra.usuarioEmail,
+                fecha: compra.fecha,
+                hora: compra.hora,
+                supermercado: compra.supermercado,
+                total: compra.total,
+                categoria: compra.categoria,
+                ticket_imagen_uri: compra.ticketImagenUri
+            }])
+            .select()
+            .single();
 
-        if (error) throw error;
+        if (errorCompra) throw errorCompra;
 
-        res.json({
-            success: true,
-            message: 'Compra eliminada correctamente de la nube'
-        });
+        if (compra.productos && compra.productos.length > 0) {
+            const productosParaInsertar = compra.productos.map(p => ({
+                compra_id: nuevaCompra.id,
+                codigo: p.codigo,
+                nombre: p.nombre,
+                descripcion: p.descripcion,
+                cantidad: p.cantidad,
+                precio: p.precio
+            }));
+            const { error: errorProductos } = await supabase.from('productos').insert(productosParaInsertar);
+            if (errorProductos) throw errorProductos;
+        }
 
+        res.json({ success: true, message: 'Compra sincronizada' });
     } catch (error) {
-        console.error('Error al eliminar compra:', error.message);
+        console.error('Error al sincronizar compra:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 });
 
-/**
- * POST: Chat con IA (Gemini).
- * Recibe un mensaje del usuario y devuelve la respuesta de la IA.
- * Endpoint: /api/v1/chat
- */
+// DELETE /compras/:id_local
+app.delete('/api/v1/compras/:id_local', async (req, res) => {
+    try {
+        const { id_local } = req.params;
+        const { error } = await supabase.from('compras').delete().eq('id_local', id_local);
+        if (error) throw error;
+        res.json({ success: true, message: 'Compra eliminada' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// POST /chat
 app.post('/api/v1/chat', async (req, res) => {
     try {
         const { message } = req.body;
@@ -267,41 +244,57 @@ app.post('/api/v1/chat', async (req, res) => {
             Eres un asistente experto en ahorro y finanzas personales para la app 'SuperAhorro'.
             Aquí están los datos de las últimas compras sincronizadas del usuario:
             ${contextData}
-
-            Responde de forma breve, amigable y útil a la siguiente consulta: ${message}
+            Responde de forma breve y amigable: ${message}
         `;
 
         const text = await askGemini(prompt);
         res.json({ response: text });
-
     } catch (error) {
-        console.error('Error detallado en Chat IA:', error);
-        res.status(500).json({
-            error: 'Error al procesar la consulta con la IA',
-            details: error.message
-        });
+        res.status(500).json({ error: 'Error en IA', details: error.message });
     }
 });
 
-/**
- * POST: Verificar Gasto Seguro (Algoritmo del Banquero).
- * Endpoint: /api/v1/budget/check
- */
+// POST /budget/check
 app.post('/api/v1/budget/check', async (req, res) => {
     try {
         const { categoria, monto_solicitado, presupuesto_total, usuario_email } = req.body;
 
-        const { data: presupuestos } \u003d await supabase\n            .from(\u0027presupuestos\u0027)\n            .select(\u0027*\u0027)\n            .eq(\u0027usuario_email\u0027, usuario_email);\n\n        // Si el usuario no tiene presupuestos configurados, usamos unos por defecto\n        const categoriasBase \u003d [\u0027Comida\u0027, \u0027Servicios\u0027, \u0027Ocio\u0027, \u0027Otros\u0027];\n        const presupuestosFinales \u003d presupuestos.length \u003e 0 \n            ? presupuestos \n            : categoriasBase.map(c \u003d\u003e ({ categoria: c, monto_maximo: 10000 }));\n\n        const { data: gastos } \u003d await supabase\n            .from(\u0027compras\u0027)\n            .select(\u0027categoria, total\u0027)\n            .eq(\u0027usuario_email\u0027, usuario_email) // Filtramos por usuario\n            .gte(\u0027fecha\u0027, new Date().toISOString().substring(0, 7) + \u0027-01\u0027);\n\n        const allocation \u003d {};\n        presupuestosFinales.forEach(p \u003d\u003e allocation[p.categoria] \u003d 0);\n        gastos.forEach(g \u003d\u003e {\n            if (allocation[g.categoria] !\u003d\u003d undefined) {\n                allocation[g.categoria] +\u003d parseFloat(g.total);\n            }\n        });\n\n        const categorias \u003d presupuestosFinales.map(p \u003d\u003e p.categoria);\n        const max \u003d presupuestosFinales.map(p \u003d\u003e parseFloat(p.monto_maximo));\n        const currentAllocation \u003d categorias.map(c \u003d\u003e allocation[c]);\n        const totalResources \u003d presupuesto_total || max.reduce((acc, val) \u003d\u003e acc + val, 0);\n        const totalSpent = currentAllocation.reduce((acc, val) => acc + val, 0);
+        const { data: presupuestos } = await supabase
+            .from('presupuestos')
+            .select('*')
+            .eq('usuario_email', usuario_email);
+
+        const categoriasBase = ['Comida', 'Servicios', 'Ocio', 'Otros'];
+        const presupuestosFinales = presupuestos.length > 0
+            ? presupuestos
+            : categoriasBase.map(c => ({ categoria: c, monto_maximo: 10000 }));
+
+        const { data: gastos } = await supabase
+            .from('compras')
+            .select('categoria, total')
+            .eq('usuario_email', usuario_email)
+            .gte('fecha', new Date().toISOString().substring(0, 7) + '-01');
+
+        const allocation = {};
+        presupuestosFinales.forEach(p => allocation[p.categoria] = 0);
+        gastos.forEach(g => {
+            if (allocation[g.categoria] !== undefined) {
+                allocation[g.categoria] += parseFloat(g.total);
+            }
+        });
+
+        const categorias = presupuestosFinales.map(p => p.categoria);
+        const max = presupuestosFinales.map(p => parseFloat(p.monto_maximo));
+        const currentAllocation = categorias.map(c => allocation[c]);
+        const totalResources = presupuesto_total || max.reduce((acc, val) => acc + val, 0);
+        const totalSpent = currentAllocation.reduce((acc, val) => acc + val, 0);
         let available = totalResources - totalSpent;
 
         const idx = categorias.indexOf(categoria);
         if (idx === -1) return res.status(400).json({ error: 'Categoría no válida' });
 
         if (monto_solicitado > available) {
-            return res.json({
-                safe: false,
-                message: `Inseguro: El gasto de $${monto_solicitado} supera tu saldo disponible actual de $${available.toFixed(2)}.`
-            });
+            return res.json({ safe: false, message: `Inseguro: Supera tu saldo de $${available.toFixed(2)}.` });
         }
 
         available -= monto_solicitado;
@@ -311,7 +304,6 @@ app.post('/api/v1/budget/check', async (req, res) => {
         const need = max.map((m, i) => m - simAllocation[i]);
         const finish = new Array(categorias.length).fill(false);
         let work = available;
-
         let possible = true;
         while (possible) {
             possible = false;
@@ -327,19 +319,13 @@ app.post('/api/v1/budget/check', async (req, res) => {
         const isSafe = finish.every(f => f === true);
         res.json({
             safe: isSafe,
-            message: isSafe
-                ? 'Estado Seguro: Tienes margen suficiente para cubrir tus otros presupuestos máximos.'
-                : 'Estado Inseguro: Realizar este gasto podría impedirte cumplir con el presupuesto máximo de otras categorías esenciales.'
+            message: isSafe ? 'Estado Seguro' : 'Estado Inseguro'
         });
-
     } catch (error) {
-        console.error('Error en Algoritmo del Banquero:', error.message);
-        res.status(500).json({ error: 'Error al ejecutar el simulador de presupuesto' });
+        res.status(500).json({ error: error.message });
     }
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor de SuperAhorro encendido con éxito.`);
-    console.log(`Puerto: ${PORT}`);
-    console.log(`Endpoints activos: GET /supermercados, POST /compras, DELETE /compras/:id, POST /chat, POST /budget/check`);
+    console.log(`Servidor encendido en puerto ${PORT}`);
 });
