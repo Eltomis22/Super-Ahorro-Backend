@@ -37,31 +37,35 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
  * Soluciona errores 404 de modelos retirados o inaccesibles.
  */
 async function askGemini(prompt) {
-    const modelosParaProbar = [
-        "gemini-1.5-flash",
-        "gemini-1.5-flash-8b",
-        "gemini-pro"
+    // Combinaciones de Modelo + Versión para agotar todas las posibilidades de Google
+    const configs = [
+        { model: "gemini-1.5-flash", version: "v1" },
+        { model: "gemini-1.5-flash", version: "v1beta" },
+        { model: "gemini-pro", version: "v1" },
+        { model: "gemini-1.0-pro", version: "v1" }
     ];
 
     let ultimoError = null;
-    for (const modelName of modelosParaProbar) {
+    for (const conf of configs) {
         try {
-            console.log(`Intentando conectar con: ${modelName}...`);
-            const modelInstance = genAI.getGenerativeModel({ model: modelName });
+            console.log(`Probando configuración: ${conf.model} en ${conf.version}...`);
+            const modelInstance = genAI.getGenerativeModel({ model: conf.model }, { apiVersion: conf.version });
             const result = await modelInstance.generateContent(prompt);
             const response = await result.response;
             const text = response.text();
 
             if (text) {
-                console.log(`¡Éxito con ${modelName}!`);
+                console.log(`¡Éxito con ${conf.model} (${conf.version})!`);
                 return text;
             }
         } catch (e) {
-            console.warn(`Fallo en ${modelName}:`, e.message);
+            console.warn(`Fallo ${conf.model} en ${conf.version}:`, e.message);
             ultimoError = e;
+            // Si el error es de permisos (403), no seguimos probando modelos
+            if (e.message.includes("403")) break;
         }
     }
-    throw new Error(`La IA sigue dando error 404. Por favor, crea una NUEVA API Key en AI Studio (Create Key in New Project) y actualízala en Render.`);
+    throw new Error(`Google sigue rechazando la conexión (404/403). Detalles: ${ultimoError?.message}`);
 }
 
 // --- ENDPOINTS ---
