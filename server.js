@@ -11,6 +11,13 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Logger de Peticiones (Para ver actividad en Render)
+app.use((req, res, next) => {
+    const ahora = new Date().toLocaleString();
+    console.log(`[${ahora}] ${req.method} ${req.url}`);
+    next();
+});
+
 // Configuración de Supabase
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
