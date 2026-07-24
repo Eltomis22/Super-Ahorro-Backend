@@ -183,7 +183,7 @@ app.post('/api/v1/compras', async (req, res) => {
 
         const { data: nuevaCompra, error: errorCompra } = await supabase
             .from('compras')
-            .insert([{
+            .upsert([{
                 id_local: compra.id_local || compra.id,
                 usuario_email: compra.usuarioEmail || compra.usuario_email,
                 fecha: compra.fecha,
@@ -192,23 +192,28 @@ app.post('/api/v1/compras', async (req, res) => {
                 total: compra.total,
                 categoria: compra.categoria,
                 ticket_imagen_uri: compra.ticketImagenUri || compra.ticket_imagen_uri
-            }])
+            }], { onConflict: 'usuario_email,id_local' })
             .select()
             .single();
 
         if (errorCompra) throw errorCompra;
 
-        if (compra.productos && compra.productos.length > 0) {
-            const productosParaInsertar = compra.productos.map(p => ({
-                compra_id: nuevaCompra.id,
-                codigo: p.codigo,
-                nombre: p.nombre,
-                descripcion: p.descripcion,
-                cantidad: p.cantidad,
-                precio: p.precio
-            }));
-            const { error: errorProductos } = await supabase.from('productos').insert(productosParaInsertar);
-            if (errorProductos) throw errorProductos;
+        // 3. Sincronizar productos: Borramos los viejos de esta compra y metemos los nuevos
+        if (compra.productos && compra.productos.length >= 0) {
+            await supabase.from('productos').delete().eq('compra_id', nuevaCompra.id);
+
+            if (compra.productos.length > 0) {
+                const productosParaInsertar = compra.productos.map(p => ({
+                    compra_id: nuevaCompra.id,
+                    codigo: p.codigo,
+                    nombre: p.nombre,
+                    descripcion: p.descripcion,
+                    cantidad: p.cantidad,
+                    precio: p.precio
+                }));
+                const { error: errorProductos } = await supabase.from('productos').insert(productosParaInsertar);
+                if (errorProductos) throw errorProductos;
+            }
         }
 
         res.json({ success: true, message: 'Compra sincronizada' });
