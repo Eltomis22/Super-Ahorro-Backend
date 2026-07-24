@@ -212,7 +212,7 @@ app.post('/api/v1/compras', async (req, res) => {
 });
 
 /**
- * GET: Obtiene todas las compras de un usuario (para restauración/sync).
+ * GET: Obtiene todas las compras de un usuario con sus productos (para restauración).
  * Endpoint: /api/v1/compras?email=...
  */
 app.get('/api/v1/compras', async (req, res) => {
@@ -220,19 +220,35 @@ app.get('/api/v1/compras', async (req, res) => {
         const { email } = req.query;
         if (!email) return res.status(400).json({ error: 'Email requerido' });
 
-        // Traemos las compras del usuario
-        const { data: compras, error } = await supabase
+        // 1. Traemos las compras del usuario
+        const { data: compras, error: errorCompras } = await supabase
             .from('compras')
             .select('*')
             .eq('usuario_email', email)
             .order('fecha', { ascending: false });
 
-        if (error) throw error;
+        if (errorCompras) throw errorCompras;
 
-        // Nota: Para una app de producción, aquí también traeríamos los productos
-        // vinculados a cada compra. Para este integrador, con las compras base estamos bien.
-        res.json(compras);
+        if (compras.length === 0) return res.json([]);
+
+        // 2. Traemos todos los productos vinculados a esas compras
+        const idsCompras = compras.map(c => c.id);
+        const { data: productos, error: errorProductos } = await supabase
+            .from('productos')
+            .select('*')
+            .in('compra_id', idsCompras);
+
+        if (errorProductos) throw errorProductos;
+
+        // 3. Unimos los productos dentro de cada compra
+        const comprasCompletas = compras.map(c => ({
+            ...c,
+            productos: productos.filter(p => p.compra_id === c.id)
+        }));
+
+        res.json(comprasCompletas);
     } catch (error) {
+        console.error('Error al obtener compras completas:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 });
