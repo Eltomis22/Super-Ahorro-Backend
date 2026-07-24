@@ -211,6 +211,32 @@ app.post('/api/v1/compras', async (req, res) => {
     }
 });
 
+/**
+ * GET: Obtiene todas las compras de un usuario (para restauración/sync).
+ * Endpoint: /api/v1/compras?email=...
+ */
+app.get('/api/v1/compras', async (req, res) => {
+    try {
+        const { email } = req.query;
+        if (!email) return res.status(400).json({ error: 'Email requerido' });
+
+        // Traemos las compras del usuario
+        const { data: compras, error } = await supabase
+            .from('compras')
+            .select('*')
+            .eq('usuario_email', email)
+            .order('fecha', { ascending: false });
+
+        if (error) throw error;
+
+        // Nota: Para una app de producción, aquí también traeríamos los productos
+        // vinculados a cada compra. Para este integrador, con las compras base estamos bien.
+        res.json(compras);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 // DELETE /compras/:id_local
 app.delete('/api/v1/compras/:id_local', async (req, res) => {
     try {
