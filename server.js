@@ -177,14 +177,14 @@ app.post('/api/v1/compras', async (req, res) => {
         const { data: nuevaCompra, error: errorCompra } = await supabase
             .from('compras')
             .insert([{
-                id_local: compra.id,
-                usuario_email: compra.usuarioEmail,
+                id_local: compra.id_local || compra.id,
+                usuario_email: compra.usuarioEmail || compra.usuario_email,
                 fecha: compra.fecha,
                 hora: compra.hora,
                 supermercado: compra.supermercado,
                 total: compra.total,
                 categoria: compra.categoria,
-                ticket_imagen_uri: compra.ticketImagenUri
+                ticket_imagen_uri: compra.ticketImagenUri || compra.ticket_imagen_uri
             }])
             .select()
             .single();
